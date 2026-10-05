@@ -1,95 +1,156 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { getAllMovies } from "../../services/movieService";
-import MovieCard from "../../components/movie/MovieCard";
+import ErrorMessage from "../../components/common/ErrorMessage";
+import Loader from "../../components/common/Loader";
+import MediaGrid from "../../components/media/MediaGrid";
+import { getErrorMessage } from "../../services/api";
+import { getMovies } from "../../services/movieService";
+import { getSeries } from "../../services/seriesService";
 import type { Movie } from "../../types/Movie";
+import type { TvSeries } from "../../types/TvSeries";
+import { posterOrPlaceholder } from "../../utils/format";
 
 function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [series, setSeries] = useState<TvSeries[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    getAllMovies()
-      .then((data) => {
-        setMovies(data);
-        setLoading(false);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    Promise.all([getMovies(), getSeries()])
+      .then(([movieList, seriesList]) => {
+        if (!cancelled) {
+          setMovies(movieList);
+          setSeries(seriesList);
+        }
       })
-      .catch(() => {
-        setLoading(false);
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(getErrorMessage(err, "Could not load the home page."));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
-  }, []);
 
-  const filteredMovies = movies.filter((movie) =>
-    movie.title.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const heroMovie = movies[0];
-  const latestMovies = movies.slice(0, 8);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   if (loading) {
-    return <h2>Loading home page...</h2>;
+    return <Loader label="Loading home page..." />;
   }
+
+  if (error) {
+    return <ErrorMessage message={error} onRetry={() => setReloadKey((key) => key + 1)} />;
+  }
+
+  const hero = movies.find((movie) => movie.featured) ?? movies[0] ?? null;
 
   return (
     <div className="home-page">
-      <div className="page-header">
-        <h1>Movies</h1>
-
-        <input
-          type="text"
-          placeholder="Search movies..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      {heroMovie && (
+      {hero ? (
         <section
           className="hero-section"
           style={{
-            backgroundImage: `linear-gradient(to right, #111 30%, rgba(0,0,0,0.4)), url(${heroMovie.bannerUrl})`,
+            backgroundImage:
+              "linear-gradient(to right, rgba(10,10,10,0.96) 15%, rgba(10,10,10,0.35) 75%), " +
+              `url(${posterOrPlaceholder(hero.bannerUrl ?? hero.posterUrl)})`,
           }}
         >
           <div className="hero-content">
-            <h1>{heroMovie.title}</h1>
-            <p>{heroMovie.description}</p>
+            <span className="hero-tag">Featured</span>
+            <h1>{hero.title}</h1>
 
-            <div className="hero-info">
-              <span>{heroMovie.releaseYear}</span>
-              <span>{heroMovie.language}</span>
-              <span>{heroMovie.duration}</span>
+            <div className="chip-row">
+              {hero.releaseYear && <span className="chip">{hero.releaseYear}</span>}
+              {hero.language && <span className="chip">{hero.language}</span>}
+              {hero.duration && <span className="chip">{hero.duration}</span>}
+              {hero.genre && <span className="chip">{hero.genre.name}</span>}
+              {hero.rating !== null && <span className="chip">★ {hero.rating.toFixed(1)}</span>}
             </div>
 
-            <div className="hero-buttons">
-              <Link to={`/watch/movie/${heroMovie.id}`} className="watch-btn">
-                Watch Now
-              </Link>
+            {hero.description && <p className="hero-description">{hero.description}</p>}
 
-              <Link to={`/movies/${heroMovie.id}`} className="details-btn">
-                View Details
+            <div className="button-row">
+              <Link to={`/watch/movie/${hero.id}`} className="btn btn-primary">
+                ▶ Watch now
+              </Link>
+              <Link to={`/movies/${hero.id}`} className="btn btn-secondary">
+                More info
               </Link>
             </div>
+          </div>
+        </section>
+      ) : (
+        <section className="hero-section hero-empty">
+          <div className="hero-content">
+            <h1>Welcome to MovieWeb</h1>
+            <p className="hero-description">
+              There is nothing to show yet. Sign in as an administrator and add your first title
+              from the admin dashboard.
+            </p>
+            <Link to="/admin" className="btn btn-primary">
+              Go to admin
+            </Link>
           </div>
         </section>
       )}
 
       <section className="home-section">
         <div className="section-title">
-          <h2>Latest Movies</h2>
-          <Link to="/movies">View All</Link>
+          <h2>Latest movies</h2>
+          <Link to="/movies">View all</Link>
         </div>
 
-        {filteredMovies.length === 0 ? (
-          <p>No movies found.</p>
+        {movies.length === 0 ? (
+          <p className="muted">No movies have been added yet.</p>
         ) : (
-          <div className="movie-grid">
-            {filteredMovies.slice(0, 8).map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
+          <MediaGrid
+            basePath="/movies"
+            items={movies.slice(0, 10).map((movie) => ({
+              id: movie.id,
+              title: movie.title,
+              posterUrl: movie.posterUrl,
+              releaseYear: movie.releaseYear,
+              language: movie.language,
+              rating: movie.rating,
+              genreName: movie.genre?.name ?? null,
+            }))}
+          />
+        )}
+      </section>
+
+      <section className="home-section">
+        <div className="section-title">
+          <h2>Latest TV series</h2>
+          <Link to="/series">View all</Link>
+        </div>
+
+        {series.length === 0 ? (
+          <p className="muted">No series have been added yet.</p>
+        ) : (
+          <MediaGrid
+            basePath="/series"
+            items={series.slice(0, 10).map((item) => ({
+              id: item.id,
+              title: item.title,
+              posterUrl: item.posterUrl,
+              releaseYear: item.releaseYear,
+              language: item.language,
+              rating: item.rating,
+              genreName: item.genre?.name ?? null,
+            }))}
+          />
         )}
       </section>
     </div>

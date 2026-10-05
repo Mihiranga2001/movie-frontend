@@ -1,29 +1,48 @@
 import api from "./api";
-import type { Movie } from "../types/Movie";
+import type { MessageResponse } from "../types/Api";
+import type { Movie, MovieLink, MoviePayload } from "../types/Movie";
 
-export const getAllMovies = async (): Promise<Movie[]> => {
-  const response = await api.get<Movie[]>("/movies");
+export interface MovieQuery {
+  search?: string;
+  genreId?: number | null;
+}
+
+export async function getMovies(query: MovieQuery = {}): Promise<Movie[]> {
+  const response = await api.get<Movie[]>("/movies", {
+    params: {
+      search: query.search?.trim() || undefined,
+      genreId: query.genreId ?? undefined,
+    },
+  });
   return response.data;
-};
+}
 
-export const getMovieById = async (id: number): Promise<Movie> => {
+export async function getFeaturedMovies(): Promise<Movie[]> {
+  const response = await api.get<Movie[]>("/movies/featured");
+  return response.data;
+}
+
+export async function getMovieById(id: number): Promise<Movie> {
   const response = await api.get<Movie>(`/movies/${id}`);
   return response.data;
-};
+}
 
-export const addMovie = async (movie: Partial<Movie>): Promise<Movie> => {
-  const response = await api.post<Movie>("/movies", movie);
+export async function createMovie(payload: MoviePayload): Promise<Movie> {
+  const response = await api.post<Movie>("/movies", payload);
   return response.data;
-};
+}
 
-export const updateMovie = async (
-  id: number,
-  movie: Partial<Movie>
-): Promise<Movie> => {
-  const response = await api.put<Movie>(`/movies/${id}`, movie);
+export async function updateMovie(id: number, payload: MoviePayload): Promise<Movie> {
+  const response = await api.put<Movie>(`/movies/${id}`, payload);
   return response.data;
-};
+}
 
-export const deleteMovie = async (id: number): Promise<void> => {
-  await api.delete(`/movies/${id}`);
-};
+export async function deleteMovie(id: number): Promise<MessageResponse> {
+  const response = await api.delete<MessageResponse>(`/movies/${id}`);
+  return response.data;
+}
+
+export async function getMovieLinks(movieId: number): Promise<MovieLink[]> {
+  const response = await api.get<MovieLink[]>(`/movies/${movieId}/links`);
+  return response.data;
+}

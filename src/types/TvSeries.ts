@@ -1,12 +1,15 @@
+import type { Episode } from "./Episode";
 import type { Genre } from "./Genre";
 
-export interface Movie {
+export interface TvSeries {
   id: number;
   title: string;
   description: string | null;
   releaseYear: number | null;
   language: string | null;
   duration: string | null;
+  seasonNo: number | null;
+  episodeNo: number | null;
   rating: number | null;
   posterUrl: string | null;
   bannerUrl: string | null;
@@ -17,15 +20,19 @@ export interface Movie {
   featured: boolean;
   createdAt: string | null;
   genre: Genre | null;
+  /** Empty on list endpoints, populated by GET /api/series/{id}. */
+  episodes: Episode[];
 }
 
-/** Body accepted by POST/PUT /api/movies. */
-export interface MoviePayload {
+/** Body accepted by POST/PUT /api/series. */
+export interface TvSeriesPayload {
   title: string;
   description?: string | null;
   releaseYear?: number | null;
   language?: string | null;
   duration?: string | null;
+  seasonNo?: number | null;
+  episodeNo?: number | null;
   rating?: number | null;
   posterUrl?: string | null;
   bannerUrl?: string | null;
@@ -34,13 +41,4 @@ export interface MoviePayload {
   downloadUrl?: string | null;
   featured?: boolean;
   genreId?: number | null;
-}
-
-export interface MovieLink {
-  id: number;
-  linkName: string;
-  linkType: string;
-  quality: string | null;
-  url: string;
-  movieId: number;
 }

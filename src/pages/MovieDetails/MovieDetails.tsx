@@ -1,68 +1,125 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getMovieById } from "../../services/movieService";
-import type { Movie } from "../../types/Movie";
+import ErrorMessage from "../../components/common/ErrorMessage";
+import Loader from "../../components/common/Loader";
+import { getErrorMessage } from "../../services/api";
+import { getMovieById, getMovieLinks } from "../../services/movieService";
+import type { Movie, MovieLink } from "../../types/Movie";
+import { posterOrPlaceholder } from "../../utils/format";
 
 function MovieDetails() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const [movie, setMovie] = useState<Movie | null>(null);
+  const [links, setLinks] = useState<MovieLink[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    const movieId = Number(id);
+    if (!Number.isFinite(movieId)) {
+      setError("That movie id is not valid.");
+      setLoading(false);
+      return;
+    }
 
-    getMovieById(Number(id))
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getMovieById(movieId)
       .then((data) => {
-        setMovie(data);
-        setLoading(false);
+        if (!cancelled) {
+          setMovie(data);
+        }
+        // Extra sources are optional — a failure here must not break the page.
+        return getMovieLinks(movieId).catch(() => [] as MovieLink[]);
       })
-      .catch(() => {
-        setLoading(false);
+      .then((linkList) => {
+        if (!cancelled && linkList) {
+          setLinks(linkList);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(getErrorMessage(err, "Could not load this movie."));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {
-    return <h2>Loading movie details...</h2>;
+    return <Loader label="Loading movie details..." />;
   }
 
-  if (!movie) {
-    return <h2>Movie not found.</h2>;
+  if (error || !movie) {
+    return <ErrorMessage message={error ?? "Movie not found."} />;
   }
 
   return (
-    <div>
+    <div className="detail-page">
+      <Link to="/movies" className="back-link">
+        ← Back to movies
+      </Link>
+
       <div
-        className="movie-detail-banner"
+        className="detail-banner"
         style={{
-          backgroundImage: `linear-gradient(to right, #111 30%, rgba(0,0,0,0.4)), url(${movie.bannerUrl})`,
+          backgroundImage:
+            "linear-gradient(to right, rgba(10,10,10,0.96) 20%, rgba(10,10,10,0.4) 80%), " +
+            `url(${posterOrPlaceholder(movie.bannerUrl ?? movie.posterUrl)})`,
         }}
       >
-        <div className="movie-detail-content">
-          <img src={movie.posterUrl} alt={movie.title} />
+        <div className="detail-content">
+          <img
+            className="detail-poster"
+            src={posterOrPlaceholder(movie.posterUrl)}
+            alt={movie.title}
+          />
 
-          <div>
+          <div className="detail-info">
             <h1>{movie.title}</h1>
-            <p>{movie.description}</p>
 
-            <div className="movie-info">
-              <span>{movie.releaseYear}</span>
-              <span>{movie.language}</span>
-              <span>{movie.duration}</span>
-              <span>{movie.genre?.name}</span>
+            <div className="chip-row">
+              {movie.releaseYear && <span className="chip">{movie.releaseYear}</span>}
+              {movie.language && <span className="chip">{movie.language}</span>}
+              {movie.duration && <span className="chip">{movie.duration}</span>}
+              {movie.genre && <span className="chip">{movie.genre.name}</span>}
+              {movie.rating !== null && <span className="chip">★ {movie.rating.toFixed(1)}</span>}
             </div>
 
-            <div className="movie-actions">
-              <Link to={`/watch/movie/${movie.id}`} className="watch-btn">
-                Watch Now
+            {movie.description && <p className="detail-description">{movie.description}</p>}
+
+            <div className="button-row">
+              <Link to={`/watch/movie/${movie.id}`} className="btn btn-primary">
+                ▶ Watch now
               </Link>
+
+              {movie.trailerUrl && (
+                <a
+                  href={movie.trailerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary"
+                >
+                  Trailer
+                </a>
+              )}
 
               {movie.downloadUrl && (
                 <a
                   href={movie.downloadUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="download-btn"
+                  className="btn btn-secondary"
                 >
                   Download
                 </a>
@@ -71,6 +128,26 @@ function MovieDetails() {
           </div>
         </div>
       </div>
+
+      {links.length > 0 && (
+        <section className="home-section">
+          <div className="section-title">
+            <h2>Other sources</h2>
+          </div>
+          <ul className="link-list">
+            {links.map((link) => (
+              <li key={link.id}>
+                <a href={link.url} target="_blank" rel="noreferrer">
+                  {link.linkName}
+                </a>
+                <span className="muted">
+                  {[link.linkType, link.quality].filter(Boolean).join(" • ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

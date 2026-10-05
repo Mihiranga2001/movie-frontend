@@ -14,4 +14,12 @@ export interface AuthUser {
   username: string;
   email: string;
   role: string;
+  createdAt: string | null;
+}
+
+export interface AuthResponse {
+  token: string;
+  tokenType: string;
+  expiresInMs: number;
+  user: AuthUser;
 }

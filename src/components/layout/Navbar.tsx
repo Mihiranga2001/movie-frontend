@@ -1,39 +1,77 @@
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+
+import { useAuth } from "../../hooks/useAuth";
 
 function Navbar() {
   const navigate = useNavigate();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const user = localStorage.getItem("user");
-  const loggedUser = user ? JSON.parse(user) : null;
-
-  const logout = () => {
-    localStorage.removeItem("user");
-    navigate("/login");
-    window.location.reload();
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    // React Router navigation — no full page reload needed.
+    navigate("/login", { replace: true });
   };
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <nav className="navbar">
-      <h2>MovieWeb</h2>
+      <NavLink to="/" className="brand" onClick={closeMenu}>
+        Movie<span>Web</span>
+      </NavLink>
 
-      <div className="nav-links">
-        <NavLink to="/">Home</NavLink>
-        <NavLink to="/movies">Movies</NavLink>
-        <NavLink to="/series">TV Series</NavLink>
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-expanded={menuOpen}
+        aria-label="Toggle navigation"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        ☰
+      </button>
 
-        {loggedUser?.role === "ADMIN" && (
-          <NavLink to="/admin">Admin</NavLink>
+      <div className={menuOpen ? "nav-links open" : "nav-links"}>
+        <NavLink to="/" end onClick={closeMenu}>
+          Home
+        </NavLink>
+        <NavLink to="/movies" onClick={closeMenu}>
+          Movies
+        </NavLink>
+        <NavLink to="/series" onClick={closeMenu}>
+          TV Series
+        </NavLink>
+
+        {isAuthenticated && (
+          <NavLink to="/history" onClick={closeMenu}>
+            My List
+          </NavLink>
         )}
 
-        {!loggedUser ? (
-          <>
-            <NavLink to="/login">Login</NavLink>
-            <NavLink to="/register">Register</NavLink>
-          </>
+        {isAdmin && (
+          <NavLink to="/admin" onClick={closeMenu}>
+            Admin
+          </NavLink>
+        )}
+
+        {isAuthenticated ? (
+          <div className="nav-user">
+            <span className="nav-username">{user?.username}</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
         ) : (
-          <button className="logout-btn" onClick={logout}>
-            Logout
-          </button>
+          <>
+            <NavLink to="/login" onClick={closeMenu}>
+              Login
+            </NavLink>
+            <NavLink to="/register" className="nav-cta" onClick={closeMenu}>
+              Register
+            </NavLink>
+          </>
         )}
       </div>
     </nav>

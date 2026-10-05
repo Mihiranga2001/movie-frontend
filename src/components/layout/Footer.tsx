@@ -1,7 +1,7 @@
 function Footer() {
   return (
     <footer className="footer">
-      <p>© 2026 MovieWeb. All rights reserved.</p>
+      <p>© {new Date().getFullYear()} MovieWeb. Built with React and Spring Boot.</p>
     </footer>
   );
 }

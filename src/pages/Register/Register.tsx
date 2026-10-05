@@ -1,60 +1,103 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { registerUser } from "../../services/authService";
+import { Link, useNavigate } from "react-router-dom";
+
+import Banner from "../../components/common/Banner";
+import { useAuth } from "../../hooks/useAuth";
+import { getErrorMessage } from "../../services/api";
 
 function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
 
+    if (password !== confirm) {
+      setError("The two passwords do not match.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const user = await registerUser({
-        username,
-        email,
-        password,
-      });
-
-      localStorage.setItem("user", JSON.stringify(user));
-
-      alert("Register successful");
-      navigate("/");
-    } catch {
-      alert("Registration failed. Email may already exist.");
+      await register({ username: username.trim(), email: email.trim(), password });
+      navigate("/", { replace: true });
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Registration failed."));
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="auth-page">
-      <form className="auth-form" onSubmit={handleRegister}>
-        <h1>Register</h1>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <h1>Create account</h1>
 
+        {error && <Banner tone="error" message={error} onDismiss={() => setError(null)} />}
+
+        <label htmlFor="register-username">Username</label>
         <input
+          id="register-username"
           type="text"
-          placeholder="Username"
+          autoComplete="username"
+          placeholder="Your name"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(event) => setUsername(event.target.value)}
+          required
         />
 
+        <label htmlFor="register-email">Email</label>
         <input
+          id="register-email"
           type="email"
-          placeholder="Email"
+          autoComplete="email"
+          placeholder="you@example.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(event) => setEmail(event.target.value)}
+          required
         />
 
+        <label htmlFor="register-password">Password</label>
         <input
+          id="register-password"
           type="password"
-          placeholder="Password"
+          autoComplete="new-password"
+          placeholder="At least 6 characters"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(event) => setPassword(event.target.value)}
+          required
         />
 
-        <button type="submit">Register</button>
+        <label htmlFor="register-confirm">Confirm password</label>
+        <input
+          id="register-confirm"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Repeat the password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+          required
+        />
+
+        <button type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? "Creating account..." : "Register"}
+        </button>
+
+        <p className="auth-switch">
+          Already registered? <Link to="/login">Log in</Link>
+        </p>
       </form>
     </div>
   );

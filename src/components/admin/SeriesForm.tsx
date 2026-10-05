@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 
 import type { Genre } from "../../types/Genre";
-import type { Movie, MoviePayload } from "../../types/Movie";
+import type { TvSeries, TvSeriesPayload } from "../../types/TvSeries";
 import { blankToNull, numberOrNull } from "../../utils/format";
 
 interface Props {
   genres: Genre[];
-  /** Pass a movie to switch the form into edit mode. */
-  editing: Movie | null;
+  editing: TvSeries | null;
   submitting: boolean;
-  onSubmit: (payload: MoviePayload) => void;
+  onSubmit: (payload: TvSeriesPayload) => void;
   onCancelEdit: () => void;
 }
 
@@ -18,13 +17,12 @@ interface FormState {
   description: string;
   releaseYear: string;
   language: string;
-  duration: string;
+  seasonNo: string;
+  episodeNo: string;
   rating: string;
   posterUrl: string;
   bannerUrl: string;
   trailerUrl: string;
-  videoUrl: string;
-  downloadUrl: string;
   genreId: string;
   featured: boolean;
 }
@@ -34,40 +32,34 @@ const EMPTY: FormState = {
   description: "",
   releaseYear: "",
   language: "",
-  duration: "",
+  seasonNo: "",
+  episodeNo: "",
   rating: "",
   posterUrl: "",
   bannerUrl: "",
   trailerUrl: "",
-  videoUrl: "",
-  downloadUrl: "",
   genreId: "",
   featured: false,
 };
 
-function toFormState(movie: Movie): FormState {
+function toFormState(series: TvSeries): FormState {
   return {
-    title: movie.title,
-    description: movie.description ?? "",
-    releaseYear: movie.releaseYear?.toString() ?? "",
-    language: movie.language ?? "",
-    duration: movie.duration ?? "",
-    rating: movie.rating?.toString() ?? "",
-    posterUrl: movie.posterUrl ?? "",
-    bannerUrl: movie.bannerUrl ?? "",
-    trailerUrl: movie.trailerUrl ?? "",
-    videoUrl: movie.videoUrl ?? "",
-    downloadUrl: movie.downloadUrl ?? "",
-    genreId: movie.genre?.id.toString() ?? "",
-    featured: movie.featured,
+    title: series.title,
+    description: series.description ?? "",
+    releaseYear: series.releaseYear?.toString() ?? "",
+    language: series.language ?? "",
+    seasonNo: series.seasonNo?.toString() ?? "",
+    episodeNo: series.episodeNo?.toString() ?? "",
+    rating: series.rating?.toString() ?? "",
+    posterUrl: series.posterUrl ?? "",
+    bannerUrl: series.bannerUrl ?? "",
+    trailerUrl: series.trailerUrl ?? "",
+    genreId: series.genre?.id.toString() ?? "",
+    featured: series.featured,
   };
 }
 
-/**
- * Rewritten from the original: it now supports editing, picks a real genre
- * instead of hardcoding id 1, and sends numbers as numbers.
- */
-function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Props) {
+function SeriesForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Props) {
   const [form, setForm] = useState<FormState>(EMPTY);
 
   useEffect(() => {
@@ -86,13 +78,12 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
       description: blankToNull(form.description),
       releaseYear: numberOrNull(form.releaseYear),
       language: blankToNull(form.language),
-      duration: blankToNull(form.duration),
+      seasonNo: numberOrNull(form.seasonNo),
+      episodeNo: numberOrNull(form.episodeNo),
       rating: numberOrNull(form.rating),
       posterUrl: blankToNull(form.posterUrl),
       bannerUrl: blankToNull(form.bannerUrl),
       trailerUrl: blankToNull(form.trailerUrl),
-      videoUrl: blankToNull(form.videoUrl),
-      downloadUrl: blankToNull(form.downloadUrl),
       featured: form.featured,
       genreId: form.genreId === "" ? null : Number(form.genreId),
     });
@@ -100,7 +91,7 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
 
   return (
     <form className="admin-form" onSubmit={handleSubmit}>
-      <h3>{editing ? `Edit "${editing.title}"` : "Add a new movie"}</h3>
+      <h3>{editing ? `Edit "${editing.title}"` : "Add a new series"}</h3>
 
       <div className="form-grid">
         <label className="form-field form-wide">
@@ -108,7 +99,7 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
           <input
             value={form.title}
             onChange={(event) => update("title", event.target.value)}
-            placeholder="Movie title"
+            placeholder="Series title"
             required
           />
         </label>
@@ -130,7 +121,6 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
             max={2200}
             value={form.releaseYear}
             onChange={(event) => update("releaseYear", event.target.value)}
-            placeholder="2024"
           />
         </label>
 
@@ -144,11 +134,22 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
         </label>
 
         <label className="form-field">
-          <span>Duration</span>
+          <span>Total seasons</span>
           <input
-            value={form.duration}
-            onChange={(event) => update("duration", event.target.value)}
-            placeholder="2h 14m"
+            type="number"
+            min={0}
+            value={form.seasonNo}
+            onChange={(event) => update("seasonNo", event.target.value)}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Total episodes</span>
+          <input
+            type="number"
+            min={0}
+            value={form.episodeNo}
+            onChange={(event) => update("episodeNo", event.target.value)}
           />
         </label>
 
@@ -161,7 +162,6 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
             max={10}
             value={form.rating}
             onChange={(event) => update("rating", event.target.value)}
-            placeholder="8.4"
           />
         </label>
 
@@ -183,7 +183,7 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
             checked={form.featured}
             onChange={(event) => update("featured", event.target.checked)}
           />
-          <span>Show on the home page banner</span>
+          <span>Feature this series</span>
         </label>
 
         <label className="form-field form-wide">
@@ -212,29 +212,11 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
             placeholder="https://youtube.com/watch?v=..."
           />
         </label>
-
-        <label className="form-field form-wide">
-          <span>Video URL (YouTube, Vimeo, Drive or a direct .mp4)</span>
-          <input
-            value={form.videoUrl}
-            onChange={(event) => update("videoUrl", event.target.value)}
-            placeholder="https://..."
-          />
-        </label>
-
-        <label className="form-field form-wide">
-          <span>Download URL</span>
-          <input
-            value={form.downloadUrl}
-            onChange={(event) => update("downloadUrl", event.target.value)}
-            placeholder="https://..."
-          />
-        </label>
       </div>
 
       <div className="button-row">
         <button type="submit" className="btn btn-primary" disabled={submitting}>
-          {submitting ? "Saving..." : editing ? "Save changes" : "Add movie"}
+          {submitting ? "Saving..." : editing ? "Save changes" : "Add series"}
         </button>
         {editing && (
           <button type="button" className="btn btn-secondary" onClick={onCancelEdit}>
@@ -246,4 +228,4 @@ function MovieForm({ genres, editing, submitting, onSubmit, onCancelEdit }: Prop
   );
 }
 
-export default MovieForm;
+export default SeriesForm;
